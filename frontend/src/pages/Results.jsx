@@ -187,7 +187,7 @@ export default function Results() {
       const url = canvas.toDataURL("image/png");
       const a = document.createElement("a");
       a.href = url;
-      a.download = `futurebond-ai-${sessionId}.png`;
+      a.download = `Singloliness-${sessionId}.png`;
       a.click();
     } finally {
       setBusy(false);
