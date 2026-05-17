@@ -34,8 +34,12 @@ const education = [
 ];
 
 function clampAge(n) {
+  // Allow empty input for clearing the field
+  if (n === "") return "";
+  // Only allow numeric characters
+  if (!/^\d+$/.test(n)) return "";
   const x = Number(n);
-  if (Number.isNaN(x)) return "";
+  // Clamp to valid range
   return Math.max(18, Math.min(70, x));
 }
 
@@ -73,12 +77,15 @@ export default function Questionnaire() {
             <div>
               <FieldLabel title="Your age" subtitle="We use age as a baseline, not a verdict." />
               <input
-                inputMode="numeric"
+                type="number"
                 value={answers.age}
-                onChange={(e) => setAnswers((a) => ({ ...a, age: clampAge(e.target.value) }))}
+                onChange={(e) => setAnswers((a) => ({ ...a, age: e.target.value }))}
                 placeholder="e.g. 24"
                 className="glass h-12 w-full rounded-2xl px-4 text-sm outline-none focus:border-indigo-400/40"
               />
+              {answers.age && (answers.age < 18 || answers.age > 70) && (
+                <p className="mt-2 text-sm text-red-400">Age must be between 18 and 70</p>
+              )}
             </div>
 
             <div>
@@ -267,7 +274,7 @@ export default function Questionnaire() {
 
   function canGoNext() {
     const key = stepper.step.key;
-    if (key === "basics") return Boolean(answers.age) && Boolean(answers.gender);
+    if (key === "basics") return Boolean(answers.age) && Boolean(answers.gender) && answers.age >= 18 && answers.age <= 70;
     if (key === "context") return Boolean(answers.country) && Boolean(answers.education);
     if (key === "priorities") return Boolean(answers.relationshipGoals);
     if (key === "family") return Boolean(answers.desireChildren);

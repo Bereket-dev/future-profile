@@ -63,7 +63,7 @@ export default function Landing() {
               .
             </h1>
             <p className="mt-4 max-w-xl text-base text-white/70 md:text-lg">
-              FutureBond AI analyzes your answers using a scoring engine + AI explanation to produce realistic,
+              Singloliness analyzes your answers using a scoring engine + AI explanation to produce realistic,
               confidence-weighted relationship insights based on similar profiles.
             </p>
 

@@ -47,7 +47,7 @@ export default function ShareView() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="text-xs font-semibold text-white/60">Shared result</div>
-              <div className="mt-1 font-display text-xl font-semibold">FutureBond AI</div>
+              <div className="mt-1 font-display text-xl font-semibold">Singloliness</div>
               <div className="mt-2 text-sm text-white/70">
                 Pattern-based relationship insights. Not fortune-telling.
               </div>

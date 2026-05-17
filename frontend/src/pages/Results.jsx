@@ -7,7 +7,53 @@ import Button from "../components/ui/Button.jsx";
 import Badge from "../components/ui/Badge.jsx";
 import Meter from "../components/charts/Meter.jsx";
 import Ring from "../components/charts/Ring.jsx";
+import RedFlagAnalysis from "../components/results/RedFlagAnalysis.jsx";
+import { ShareableResultCard } from "../components/results/ShareableResultCard.jsx";
+import { generateRedFlags, generateRoast } from "../utils/roastEngine.js";
 import { api } from "../services/api.js";
+import RoastMark from "../components/icons/RoastMark.jsx";
+
+function parseNumericRange(value) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  const cleaned = text.replace(/[–—]/g, "-");
+  const matches = cleaned.match(/(\d+)\s*(?:-\s*(\d+))?/);
+  if (!matches) return null;
+  const min = Number(matches[1]);
+  const max = matches[2] ? Number(matches[2]) : min;
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+  return { min: Math.min(min, max), max: Math.max(min, max) };
+}
+
+function formatRange(min, max) {
+  if (min === max) return String(min);
+  return `${min}-${max}`;
+}
+
+function scienceAlignedChildrenRange(predictedChildrenRange, answers) {
+  const predicted = String(predictedChildrenRange ?? "").trim();
+  const age = Number(answers?.age);
+  const gender = answers?.gender;
+
+  if (!predicted) return predicted;
+  if (!Number.isFinite(age) || !gender) return predicted;
+
+  // Interpret as "additional future children" (not total lifetime children).
+  // Apply conservative biological constraints for female fertility at older ages.
+  if (gender === "female") {
+    if (age >= 55) return "0";
+    if (age >= 45) {
+      const r = parseNumericRange(predicted);
+      if (!r) return "0-1";
+      const cappedMax = Math.min(r.max, 1);
+      const cappedMin = Math.min(r.min, cappedMax);
+      return formatRange(cappedMin, cappedMax);
+    }
+  }
+
+  return predicted;
+}
 
 function Stat({ label, value }) {
   return (
@@ -25,7 +71,39 @@ export default function Results() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
-  const cardRef = useRef(null);
+  const shareCardRef = useRef(null);
+  const [redFlags, setRedFlags] = useState([]);
+  const [roast, setRoast] = useState("");
+  const roastCardRef = useRef(null);
+
+  function generateAnalytics(session) {
+    if (session?.answers) {
+      setRedFlags(generateRedFlags(session.answers));
+      setRoast(generateRoast(session.answers));
+    }
+  }
+
+  async function onDownloadRoast() {
+    if (!roastCardRef.current) return;
+    setBusy(true);
+    try {
+      roastCardRef.current.dataset.exporting = "true";
+      const canvas = await html2canvas(roastCardRef.current, {
+        backgroundColor: "#050712",
+        scale: 2,
+        useCORS: true,
+        ignoreElements: (el) => el?.dataset?.exportIgnore === "true"
+      });
+      const url = canvas.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `futurebond-roast-${sessionId}.png`;
+      a.click();
+    } finally {
+      if (roastCardRef.current) delete roastCardRef.current.dataset.exporting;
+      setBusy(false);
+    }
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -37,6 +115,7 @@ export default function Results() {
         .then((d) => {
           if (!mounted) return;
           setData(d.session);
+          generateAnalytics(d.session);
           localStorage.setItem("fbai_session_demo", JSON.stringify(d.session));
         })
         .catch((e) => mounted && setError(e.message || "Failed to load demo"));
@@ -48,6 +127,7 @@ export default function Results() {
     const fromNav = location.state?.session;
     if (fromNav?.sessionId === sessionId) {
       setData(fromNav);
+      generateAnalytics(fromNav);
       return () => {
         mounted = false;
       };
@@ -58,6 +138,7 @@ export default function Results() {
       const cached = JSON.parse(localStorage.getItem(`fbai_session_${sessionId}`) || "null");
       if (cached?.sessionId === sessionId) {
         setData(cached);
+        generateAnalytics(cached);
         hasCached = true;
       }
     } catch {
@@ -69,6 +150,7 @@ export default function Results() {
       .then((d) => {
         if (!mounted) return;
         setData(d);
+        generateAnalytics(d);
         localStorage.setItem(`fbai_session_${sessionId}`, JSON.stringify(d));
       })
       .catch((e) => {
@@ -83,9 +165,10 @@ export default function Results() {
 
   const summary = useMemo(() => {
     if (!data) return null;
+    const alignedChildrenRange = scienceAlignedChildrenRange(data.predictions?.childrenRange, data.answers);
     return {
       marriageAgeRange: data.predictions?.marriageAgeRange,
-      childrenRange: data.predictions?.childrenRange,
+      childrenRange: alignedChildrenRange,
       archetype: data.predictions?.personalityArchetype,
       compatibilityStyle: data.predictions?.compatibilityStyle,
       confidence: data.predictions?.confidence
@@ -93,10 +176,10 @@ export default function Results() {
   }, [data]);
 
   async function onDownload() {
-    if (!cardRef.current) return;
+    if (!shareCardRef.current) return;
     setBusy(true);
     try {
-      const canvas = await html2canvas(cardRef.current, {
+      const canvas = await html2canvas(shareCardRef.current, {
         backgroundColor: "#050712",
         scale: 2,
         useCORS: true
@@ -163,7 +246,8 @@ export default function Results() {
     );
   }
 
-  const { predictions, scores, aiAnalysis } = data;
+  const { predictions, scores } = data;
+  const alignedChildrenRange = scienceAlignedChildrenRange(predictions?.childrenRange, data.answers);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 md:py-14">
@@ -179,16 +263,16 @@ export default function Results() {
           <Button variant="ghost" onClick={onShare} disabled={busy}>
             Share (copies link)
           </Button>
-          <Button onClick={onDownload} disabled={busy}>
+          <Button onClick={onDownloadRoast} disabled={busy}>
             Download image
           </Button>
         </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-4">
+          {/* Predictions Card */}
           <motion.div
-            ref={cardRef}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35 }}
@@ -196,7 +280,7 @@ export default function Results() {
           >
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
-                <div className="text-xs font-semibold text-white/60">FutureBond AI • Pattern Summary</div>
+                <div className="text-xs font-semibold text-white/60">Singloliness • Pattern Summary</div>
                 <div className="mt-1 font-display text-xl font-semibold">{predictions.personalityArchetype}</div>
                 <div className="mt-2 text-sm text-white/70">{predictions.compatibilityStyle}</div>
               </div>
@@ -207,28 +291,55 @@ export default function Results() {
 
             <div className="mt-6 grid gap-4 md:grid-cols-3">
               <Stat label="Marriage age range" value={predictions.marriageAgeRange} />
-              <Stat label="Children range" value={predictions.childrenRange} />
+              <Stat label="Children range" value={alignedChildrenRange} />
               <Stat label="Timeline vibe" value={predictions.timelineStyle} />
             </div>
+          </motion.div>
 
-            <div className="mt-5 rounded-3xl border border-white/10 bg-black/20 p-5">
-              <div className="text-xs font-semibold text-white/60">Relationship analysis</div>
-              <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-white/75">{aiAnalysis.analysis}</div>
+          {/* Emotional Roast - Bold and Prominent */}
+          <motion.div
+            ref={roastCardRef}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.1 }}
+            className="rounded-3xl border-2 border-pink-500/40 bg-gradient-to-br from-pink-500/15 to-purple-500/10 p-8 relative overflow-hidden group"
+          >
+            {/* Animated background glow */}
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <div className="absolute -top-32 -right-32 w-64 h-64 bg-pink-500/20 rounded-full blur-3xl" />
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                <div className="text-xs font-semibold text-white/60">Future timeline</div>
-                <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-white/75">{aiAnalysis.timeline}</div>
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-4">
+                <RoastMark className="h-8 w-8 text-pink-200/90" />
+                <div className="text-xs font-semibold text-pink-300/70">Singloliness</div>
               </div>
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                <div className="text-xs font-semibold text-white/60">Personality explanation</div>
-                <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-white/75">
-                  {aiAnalysis.personality}
-                </div>
-              </div>
+              <p className="font-display text-2xl md:text-3xl font-bold text-white leading-relaxed">
+                "{roast}"
+              </p>
+              <button
+                data-export-ignore="true"
+                onClick={onDownloadRoast}
+                disabled={busy}
+                className="mt-4 text-sm font-semibold text-pink-300/70 hover:text-pink-300 transition-colors flex items-center gap-2"
+              >
+                <span>📥</span> Download roast
+              </button>
             </div>
           </motion.div>
+
+          {/* Red Flags */}
+          <RedFlagAnalysis flags={redFlags} />
+
+          {/* Hidden shareable card for download */}
+          <div className="hidden">
+            <ShareableResultCard
+              ref={shareCardRef}
+              data={data}
+              roast={roast}
+              flags={redFlags}
+            />
+          </div>
         </div>
 
         <div className="grid gap-4">
