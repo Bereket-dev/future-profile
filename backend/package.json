@@ -1,5 +1,5 @@
 {
-  "name": "futurebond-ai-backend",
+  "name": "singloliness-backend",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -18,4 +18,3 @@
     "zod": "^3.23.8"
   }
 }
-
