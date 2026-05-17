@@ -1,4 +1,4 @@
-# FutureBond AI
+# Singloliness
 
 AI-powered relationship insights based on lifestyle patterns, personality traits, and demographic-style correlations.
 
