@@ -11,10 +11,10 @@ export default function Navbar() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <Link to="/" className="group flex items-center gap-2">
           <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-400 shadow-neon">
-            <span className="text-sm font-black tracking-tight">FB</span>
+            <span className="text-sm font-black tracking-tight">RI</span>
           </span>
           <div className="leading-tight">
-            <div className="font-display text-sm font-semibold tracking-wide">FutureBond AI</div>
+            <div className="font-display text-sm font-semibold tracking-wide">Singloliness</div>
             <div className="text-[11px] text-white/60">relationship insights</div>
           </div>
         </Link>
