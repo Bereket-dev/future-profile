@@ -37,6 +37,6 @@ const port = Number(process.env.PORT || 8080);
 await connectDb();
 app.listen(port, () => {
   // eslint-disable-next-line no-console
-  console.log(`FutureBond AI backend listening on :${port}`);
+  console.log(`Singloliness backend listening on :${port}`);
 });
 
